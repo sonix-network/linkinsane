@@ -10,6 +10,7 @@ On EL9:
  * python3-scapy
  * python3-zmq
  * libpcap
+ * tcpreplay
 
 ## Usage
 
