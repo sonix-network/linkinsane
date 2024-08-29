@@ -6,7 +6,7 @@ from . import lib
 
 class IPv6RACheck(lib.Check):
 
-    def __init__(self):
+    def __init__(self, logger):
         self.ok = True
 
     def run(self, iface):
@@ -35,14 +35,13 @@ class IPv6RACheck(lib.Check):
         self.end_time = time.time() + 0.5
 
     def receive(self, source, pkt):
-        if not self.ok:
-            return False
-
         if source == 'remote' and ICMPv6NDOptPrefixInfo in pkt:
             pi = pkt[ICMPv6NDOptPrefixInfo]
             if pi.prefix == '2001:db8:dead:beef::':
                 self.ok = False
-        return time.time() < self.end_time
+        if not self.ok:
+            return self.RECEIVE_DONE
+        return self.RECEIVE_AGAIN if time.time() < self.end_time else self.RECEIVE_DONE
 
     def result(self):
         return [

@@ -22,6 +22,8 @@ COLOR_MAP = {
 
 class Check:
     '''Base class for all checks implemented'''
+    RECEIVE_DONE = 1
+    RECEIVE_AGAIN = 2
     pass
 
 

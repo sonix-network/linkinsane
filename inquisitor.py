@@ -84,18 +84,23 @@ def main():
     lt.start()
 
     try:
-        c = [cls() for cls in checks.checks()]
+        c = [cls(logger) for cls in checks.checks()]
         for check in c:
             check.run(iface)
 
-        still_running = True
-        while still_running:
-            source, pkt = pkts.get()
-            still_running = False
+        running = c
+        while running:
+            try:
+                source, pkt = pkts.get(timeout=1.0)
+            except queue.Empty:
+                break
             logger.debug('Packet from %s: %s', source, pkt)
-            for check in c:
-                if check.receive(source, pkt):
-                    still_running = True
+            next_running = []
+            for check in running:
+                if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
+                    logger.debug('%s still running', check)
+                    next_running.append(check)
+            running = next_running
 
         table = ansitable.ANSITable('Check', 'Status', border='thick')
         for check in c:
