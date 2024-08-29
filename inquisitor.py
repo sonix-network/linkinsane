@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 from scapy.all import *
 from urllib.parse import urlunparse
+from zmq.utils.monitor import recv_monitor_message
+import ansitable
 import coloredlogs
 import logging
-import zmq
+import queue
 import sys
-from zmq.utils.monitor import recv_monitor_message
+import time
+import zmq
+
+import checks
 
 
 def construct_tcp_url(ip: str, port: int = 5555) -> str:
@@ -25,8 +30,20 @@ def event_monitor(logger, monitor: zmq.Socket, connected) -> None:
     monitor.close()
 
 
-def action(logger, x):
-    logger.debug(x)
+def action(logger, x, q):
+    q.put(('local', x))
+
+
+def receiver(logger, socket, q, shutdown):
+    while not shutdown.is_set():
+        try:
+            ts, packet = socket.recv_multipart(zmq.NOBLOCK)
+            pkt = Ether(packet)
+            pkt.time = ts
+            q.put(('remote', pkt))
+        except zmq.error.Again:
+            time.sleep(0.1)
+    logger.debug('Remote receiver thread terminated')
 
 
 def main():
@@ -45,8 +62,11 @@ def main():
 
     monitor = socket.get_monitor_socket()
     connected = threading.Event()
+    shutdown = threading.Event()
     mt = threading.Thread(target=event_monitor, args=(logger, monitor, connected))
     mt.start()
+
+    pkts = queue.Queue()
 
     logger.info('Waiting for connection to be established to peer ...')
     try:
@@ -56,18 +76,41 @@ def main():
         return
 
     conf.use_pcap = True
-    t = AsyncSniffer(iface=iface, promisc=True, prn=lambda x: action(logger, x), store=False, filter='not ip host 10.10.10.1')
+    conf.verb = 0
+    t = AsyncSniffer(iface=iface, promisc=True, prn=lambda x: action(logger, x, pkts), store=False, filter='not ip host 10.10.10.1')
     t.start()
 
+    lt = threading.Thread(target=receiver, args=(logger, socket, pkts, shutdown))
+    lt.start()
+
     try:
-        while True:
-            time, packet = socket.recv_multipart()
-            pkt = Ether(packet)
-            pkt.time = time
-            logger.debug('receiver got: %s', pkt)
+        c = [cls() for cls in checks.checks()]
+        for check in c:
+            check.run(iface)
+
+        still_running = True
+        while still_running:
+            source, pkt = pkts.get()
+            still_running = False
+            logger.debug('Packet from %s: %s', source, pkt)
+            for check in c:
+                if check.receive(source, pkt):
+                    still_running = True
+
+        table = ansitable.ANSITable('Check', 'Status', border='thick')
+        for check in c:
+            for (desc, result) in check.result():
+                status = checks.STATUS_MAP[result]
+                color = checks.COLOR_MAP[result]
+                table.row(desc, ansitable.Cell(status))
+        print()
+        table.print()
+
     except KeyboardInterrupt:
         print('Ok, shutting down')
 
+    shutdown.set()
+    lt.join()
     t.stop()
     t.join()
 
