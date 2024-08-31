@@ -1,0 +1,41 @@
+!
+! Example configuration for a IOS classic switch
+! to simulate a simple IXP
+!
+mac access-list extended DropEtherTypes
+ deny   any any 0x0 0xFF00
+ permit any any 0x0 0x0
+!
+errdisable recovery cause mac-limit
+errdisable recovery cause storm-control
+errdisable recovery interval 30
+!
+interface GigabitEthernet0/1
+ switchport mode access
+ switchport port-security violation  protect
+ switchport port-security mac-address sticky
+ switchport port-security
+ ip access-group BLOCK_ICMP_TYPES in
+ ipv6 traffic-filter BLOCK_ICMPv6_TYPES in
+ mac access-group DropEtherTypes in
+ storm-control broadcast level pps 10 1
+!
+interface GigabitEthernet0/2
+ switchport mode access
+ switchport port-security violation  protect
+ switchport port-security mac-address sticky
+ switchport port-security
+ ip access-group BLOCK_ICMP_TYPES in
+ ipv6 traffic-filter BLOCK_ICMPv6_TYPES in
+ mac access-group DropEtherTypes in
+ storm-control broadcast level pps 10 1
+!
+ip access-list extended BLOCK_ICMP_TYPES
+ deny   icmp any any redirect
+ permit ip any any
+!
+ipv6 access-list BLOCK_ICMPv6_TYPES
+ deny icmp any any redirect
+ deny icmp any any router-solicitation
+ deny icmp any any router-advertisement
+ permit ipv6 any any
