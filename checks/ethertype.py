@@ -11,7 +11,14 @@ class EtherTypeCheck(lib.Check):
         self.ok = True
 
     def run(self, iface):
-        eth_frame = Ether(dst='ff:ff:ff:ff:ff:ff', type=0x88B5) / Raw(load='Hello!')
+        eth_frame = (
+            Ether(
+                dst='9e:2c:a4:a8:e6:06',
+                src=get_if_hwaddr(iface),
+                type=0x88B5
+            ) /
+            Raw(load='Hello!')
+        )
         sendp(eth_frame, iface=iface)
         self.end_time = time.time() + 0.5
 
@@ -26,7 +33,7 @@ class EtherTypeCheck(lib.Check):
 
     def result(self):
         return [
-                ('Non-standard EtherTypes should be rejected', lib.PASSED if self.ok else lib.FAILED),
+                ('Non-standard EtherTypes should be rejected', lib.PASSED if self.ok else lib.FAILED, ''),
                 ]
 
 

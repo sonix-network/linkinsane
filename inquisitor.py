@@ -48,7 +48,7 @@ def receiver(logger, socket, q, shutdown):
 
 def main():
     logger = logging.getLogger('inquisitor')
-    coloredlogs.install(level='DEBUG')
+    coloredlogs.install(level='INFO')
     iface = sys.argv[1]
     peer = sys.argv[2]
 
@@ -102,12 +102,12 @@ def main():
                     next_running.append(check)
             running = next_running
 
-        table = ansitable.ANSITable('Check', 'Status', border='thick')
+        table = ansitable.ANSITable('Check', 'Status', 'Details', border='thick')
         for check in c:
-            for (desc, result) in check.result():
+            for (desc, result, details) in check.result():
                 status = checks.STATUS_MAP[result]
                 color = checks.COLOR_MAP[result]
-                table.row(desc, ansitable.Cell(status))
+                table.row(desc, ansitable.Cell(status), details)
         print()
         table.print()
 

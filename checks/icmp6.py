@@ -11,7 +11,10 @@ class IPv6RACheck(lib.Check):
 
     def run(self, iface):
         ra_packet = (
-            Ether(dst='33:33:00:00:00:01') /  # Destination MAC address (IPv6 all-nodes multicast)
+            Ether(
+                dst='33:33:00:00:00:01',      # Destination MAC address (IPv6 all-nodes multicast)
+                src=get_if_hwaddr(iface)
+            ) /
             IPv6(dst='ff02::1') /             # Destination IPv6 address (all-nodes multicast)
             ICMPv6ND_RA(                      # Router Advertisement message
                 chlim=64,                     # Current Hop Limit
@@ -45,7 +48,7 @@ class IPv6RACheck(lib.Check):
 
     def result(self):
         return [
-                ('IPv6 RA should not propagate', lib.PASSED if self.ok else lib.FAILED),
+                ('IPv6 RA should not propagate', lib.PASSED if self.ok else lib.FAILED, ''),
                 ]
 
 

@@ -11,8 +11,22 @@ class ManyMacCheck(lib.Check):
         self.logger = logger
 
     def run(self, iface):
-        p1 = Ether(dst='ff:ff:ff:ff:ff:ff') / IP(dst='255.255.255.255') / UDP(dport=54321)
-        p2 = Ether(dst='ff:ff:ff:ff:ff:ff', src='c2:37:d7:c7:99:f9') / IP(dst='255.255.255.255') / UDP(dport=54321)
+        p1 = (
+            Ether(
+                dst='ee:84:bc:b2:d3:94',
+                src=get_if_hwaddr(iface)
+            ) /
+            IP(dst='255.255.255.255') /
+            UDP(dport=54321)
+        )
+        p2 = (
+            Ether(
+                dst='ee:84:bc:b2:d3:94',
+                src='c2:37:d7:c7:99:f9'
+            ) /
+            IP(dst='255.255.255.255') /
+            UDP(dport=54321)
+        )
         sendp(p1, iface=iface)
         # ensure the first packet is sent and its MAC has been learnt
         time.sleep(0.1)
@@ -31,7 +45,7 @@ class ManyMacCheck(lib.Check):
 
     def result(self):
         return [
-                ('Packets from secondary MAC should be rejected', lib.FAILED if self.seen_p2 else lib.PASSED),
+                ('Packets from secondary MAC should be rejected', lib.FAILED if self.seen_p2 else lib.PASSED, ''),
                 ]
 
 
