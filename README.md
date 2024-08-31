@@ -1,6 +1,9 @@
 # linkinsane
 
-THIS IS JUST A PLAYGROUND FOR NOW, HOPEFULLY IT WILL BE USEFUL SOON (TM)
+Status: Kind of works!
+
+![image](https://github.com/user-attachments/assets/74169443-ac42-4e2c-98bb-bb0bdedf97f3)
+
 
 ## Requirements
 
