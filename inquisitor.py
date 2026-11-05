@@ -125,11 +125,15 @@ def main():
                         logger.debug('%s still running', check)
                         next_running.append(check)
                 running = next_running
-            # Let the receiver's late copies of this batch arrive before the next one starts.
+            # Wait until the receiver has been quiet for the grace period, so a
+            # backlog from this batch (the broadcast burst) is not mistaken for
+            # the next check's frames, and discard those late copies.
             if args.sequential:
-                time.sleep(args.grace)
-                while not pkts.empty():
-                    pkts.get_nowait()
+                while True:
+                    try:
+                        pkts.get(timeout=max(args.grace, 1.0))
+                    except queue.Empty:
+                        break
 
         table = ansitable.ANSITable('Check', 'Status', 'Details', border='thick')
         for check in c:
