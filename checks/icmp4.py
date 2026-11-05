@@ -51,9 +51,10 @@ class ICMPEchoCheck(lib.Check):
         self.end_time = time.time() + 0.5
 
     def receive(self, source, pkt):
-        if source == 'remote' and ICMP in pkt:
-            pi = pkt[ICMP]
-            if pi[Raw].load.decode('utf-8', errors='ignore') == 'ICMPEchoCheck':
+        if source == 'remote' and ICMP in pkt and Raw in pkt[ICMP]:
+            # Not every ICMP packet carries a payload: the redirect check's
+            # packet, for one, ends in the quoted IP header.
+            if pkt[ICMP][Raw].load.decode('utf-8', errors='ignore') == 'ICMPEchoCheck':
                 self.ok = True
         if self.ok:
             return self.RECEIVE_DONE
