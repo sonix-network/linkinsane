@@ -13,7 +13,7 @@ class ForwardCheck(lib.Check):
     def run(self, iface):
         p = (
             Ether(
-                dst='8e:b3:7b:40:e5:93',
+                dst=lib.dst_mac('forward'),
                 src=get_if_hwaddr(iface)
             ) /
             IP(dst='255.255.255.255') /
@@ -25,7 +25,7 @@ class ForwardCheck(lib.Check):
     def receive(self, source, pkt):
         if source == 'remote' and UDP in pkt:
             ether = pkt[Ether]
-            if ether.dst == '8e:b3:7b:40:e5:93':
+            if ether.dst == lib.dst_mac('forward'):
                 self.seen = True
         if self.seen:
             return self.RECEIVE_DONE

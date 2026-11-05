@@ -12,7 +12,7 @@ class ICMPRedirectCheck(lib.Check):
     def run(self, iface):
         original_ip_packet = IP(src='192.168.1.100', dst='8.8.8.8') / ICMP()
         icmp_redirect_packet = (
-            Ether(dst='a2:47:28:92:1c:c5', src=get_if_hwaddr(iface)) /
+            Ether(dst=lib.dst_mac('icmp4'), src=get_if_hwaddr(iface)) /
             IP(src='192.168.1.1', dst='192.168.1.100') /  # IP packet from router to host
             ICMP(type=5, code=1, gw='192.168.1.2') /      # ICMP Redirect message
             original_ip_packet                            # Encapsulate the original IP packet
@@ -42,7 +42,7 @@ class ICMPEchoCheck(lib.Check):
 
     def run(self, iface):
         icmp_echo_packet = (
-            Ether(dst='a2:47:28:92:1c:c5', src=get_if_hwaddr(iface)) /
+            Ether(dst=lib.dst_mac('icmp4'), src=get_if_hwaddr(iface)) /
             IP(src='192.168.1.1', dst='192.168.1.100') /  # IP packet from router to host
             ICMP() /
             Raw(load=b'ICMPEchoCheck')

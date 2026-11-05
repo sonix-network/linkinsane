@@ -20,5 +20,10 @@ On EL9:
  * Start `sudo receiver.py eth0` on one of the peers
  * Start `sudo inquisitor.py eth0 <first-peer-IP>` on another peer
 
+The unicast checks send to random destination MACs, which the receiver sees
+in promiscuous mode. When the receiver's NIC only gets frames for its own MAC
+(a VM behind a hypervisor that filters on the guest MAC, for example), pass
+the receiver's MAC with `--dst-mac aa:bb:cc:dd:ee:ff`.
+
 Ensure that the peers can communicate out of band and the IP you provide to inquisitor
 can be reached regardless of the IXP platform.

@@ -3,6 +3,7 @@ from scapy.all import *
 from urllib.parse import urlunparse
 from zmq.utils.monitor import recv_monitor_message
 import ansitable
+import argparse
 import coloredlogs
 import logging
 import queue
@@ -49,8 +50,17 @@ def receiver(logger, socket, q, shutdown):
 def main():
     logger = logging.getLogger('inquisitor')
     coloredlogs.install(level='INFO')
-    iface = sys.argv[1]
-    peer = sys.argv[2]
+    parser = argparse.ArgumentParser(description='linkinsane inquisitor: sends the probes and judges what the receiver saw')
+    parser.add_argument('iface', help='interface connected to the IXP')
+    parser.add_argument('peer', help='out-of-band IP address of the receiver')
+    parser.add_argument('--dst-mac', metavar='MAC',
+                        help='destination MAC for the unicast checks instead of random ones, '
+                             'e.g. the receiver\'s MAC when its NIC drops frames for foreign MACs')
+    args = parser.parse_args()
+    iface = args.iface
+    peer = args.peer
+    if args.dst_mac:
+        checks.lib.dst_mac_override = args.dst_mac.lower()
 
     logger.info('linkinsane inquisitor starting up on interface %s with peer %s', iface, peer)
 
