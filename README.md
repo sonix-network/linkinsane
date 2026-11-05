@@ -25,5 +25,9 @@ in promiscuous mode. When the receiver's NIC only gets frames for its own MAC
 (a VM behind a hypervisor that filters on the guest MAC, for example), pass
 the receiver's MAC with `--dst-mac aa:bb:cc:dd:ee:ff`.
 
+Each check waits about half a second for the receiver's copy, counted from
+when it sent. With a slow receiver or a long out-of-band path (VMs, for
+example), `--grace 3` gives every check that much longer.
+
 Ensure that the peers can communicate out of band and the IP you provide to inquisitor
 can be reached regardless of the IXP platform.

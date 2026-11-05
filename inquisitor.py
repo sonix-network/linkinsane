@@ -56,6 +56,9 @@ def main():
     parser.add_argument('--dst-mac', metavar='MAC',
                         help='destination MAC for the unicast checks instead of random ones, '
                              'e.g. the receiver\'s MAC when its NIC drops frames for foreign MACs')
+    parser.add_argument('--grace', type=float, default=0.0, metavar='SECONDS',
+                        help='extra time to wait for the receiver\'s copies after all checks have sent, '
+                             'for slow receivers or a long out-of-band path (default: none)')
     args = parser.parse_args()
     iface = args.iface
     peer = args.peer
@@ -97,6 +100,11 @@ def main():
         c = [cls(logger) for cls in checks.checks()]
         for check in c:
             check.run(iface)
+        # Every check judges its own window from the moment it sent, but the
+        # queue is only drained once all checks have run. A slow receiver or
+        # out-of-band path otherwise expires the early checks unseen.
+        for check in c:
+            check.end_time += args.grace
 
         running = c
         while running:
