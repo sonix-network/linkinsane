@@ -59,6 +59,9 @@ def main():
     parser.add_argument('--grace', type=float, default=0.0, metavar='SECONDS',
                         help='extra time to wait for the receiver\'s copies after all checks have sent, '
                              'for slow receivers or a long out-of-band path (default: none)')
+    parser.add_argument('--sequential', action='store_true',
+                        help='run one check at a time instead of all at once, so the broadcast burst '
+                             'cannot drown the other checks\' frames at a slow receiver')
     args = parser.parse_args()
     iface = args.iface
     peer = args.peer
@@ -98,27 +101,35 @@ def main():
 
     try:
         c = [cls(logger) for cls in checks.checks()]
-        for check in c:
-            check.run(iface)
-        # Every check judges its own window from the moment it sent, but the
-        # queue is only drained once all checks have run. A slow receiver or
-        # out-of-band path otherwise expires the early checks unseen.
-        for check in c:
-            check.end_time += args.grace
+        # One round with every check, or one round per check with --sequential.
+        rounds = [[check] for check in c] if args.sequential else [c]
+        for batch in rounds:
+            for check in batch:
+                check.run(iface)
+            # Every check judges its own window from the moment it sent, but the
+            # queue is only drained once the batch has run. A slow receiver or
+            # out-of-band path otherwise expires the early checks unseen.
+            for check in batch:
+                check.end_time += args.grace
 
-        running = c
-        while running:
-            try:
-                source, pkt = pkts.get(timeout=1.0)
-            except queue.Empty:
-                break
-            logger.debug('Packet from %s: %s', source, pkt)
-            next_running = []
-            for check in running:
-                if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
-                    logger.debug('%s still running', check)
-                    next_running.append(check)
-            running = next_running
+            running = batch
+            while running:
+                try:
+                    source, pkt = pkts.get(timeout=1.0)
+                except queue.Empty:
+                    break
+                logger.debug('Packet from %s: %s', source, pkt)
+                next_running = []
+                for check in running:
+                    if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
+                        logger.debug('%s still running', check)
+                        next_running.append(check)
+                running = next_running
+            # Let the receiver's late copies of this batch arrive before the next one starts.
+            if args.sequential:
+                time.sleep(args.grace)
+                while not pkts.empty():
+                    pkts.get_nowait()
 
         table = ansitable.ANSITable('Check', 'Status', 'Details', border='thick')
         for check in c:
