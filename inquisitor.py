@@ -3,6 +3,7 @@ from scapy.all import *
 from urllib.parse import urlunparse
 from zmq.utils.monitor import recv_monitor_message
 import ansitable
+import argparse
 import coloredlogs
 import logging
 import queue
@@ -49,8 +50,23 @@ def receiver(logger, socket, q, shutdown):
 def main():
     logger = logging.getLogger('inquisitor')
     coloredlogs.install(level='INFO')
-    iface = sys.argv[1]
-    peer = sys.argv[2]
+    parser = argparse.ArgumentParser(description='linkinsane inquisitor: sends the probes and judges what the receiver saw')
+    parser.add_argument('iface', help='interface connected to the IXP')
+    parser.add_argument('peer', help='out-of-band IP address of the receiver')
+    parser.add_argument('--dst-mac', metavar='MAC',
+                        help='destination MAC for the unicast checks instead of random ones, '
+                             'e.g. the receiver\'s MAC when its NIC drops frames for foreign MACs')
+    parser.add_argument('--grace', type=float, default=0.0, metavar='SECONDS',
+                        help='extra time to wait for the receiver\'s copies after all checks have sent, '
+                             'for slow receivers or a long out-of-band path (default: none)')
+    parser.add_argument('--sequential', action='store_true',
+                        help='run one check at a time instead of all at once, so the broadcast burst '
+                             'cannot drown the other checks\' frames at a slow receiver')
+    args = parser.parse_args()
+    iface = args.iface
+    peer = args.peer
+    if args.dst_mac:
+        checks.lib.dst_mac_override = args.dst_mac.lower()
 
     logger.info('linkinsane inquisitor starting up on interface %s with peer %s', iface, peer)
 
@@ -85,22 +101,39 @@ def main():
 
     try:
         c = [cls(logger) for cls in checks.checks()]
-        for check in c:
-            check.run(iface)
+        # One round with every check, or one round per check with --sequential.
+        rounds = [[check] for check in c] if args.sequential else [c]
+        for batch in rounds:
+            for check in batch:
+                check.run(iface)
+            # Every check judges its own window from the moment it sent, but the
+            # queue is only drained once the batch has run. A slow receiver or
+            # out-of-band path otherwise expires the early checks unseen.
+            for check in batch:
+                check.end_time += args.grace
 
-        running = c
-        while running:
-            try:
-                source, pkt = pkts.get(timeout=1.0)
-            except queue.Empty:
-                break
-            logger.debug('Packet from %s: %s', source, pkt)
-            next_running = []
-            for check in running:
-                if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
-                    logger.debug('%s still running', check)
-                    next_running.append(check)
-            running = next_running
+            running = batch
+            while running:
+                try:
+                    source, pkt = pkts.get(timeout=1.0)
+                except queue.Empty:
+                    break
+                logger.debug('Packet from %s: %s', source, pkt)
+                next_running = []
+                for check in running:
+                    if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
+                        logger.debug('%s still running', check)
+                        next_running.append(check)
+                running = next_running
+            # Wait until the receiver has been quiet for the grace period, so a
+            # backlog from this batch (the broadcast burst) is not mistaken for
+            # the next check's frames, and discard those late copies.
+            if args.sequential:
+                while True:
+                    try:
+                        pkts.get(timeout=max(args.grace, 1.0))
+                    except queue.Empty:
+                        break
 
         table = ansitable.ANSITable('Check', 'Status', 'Details', border='thick')
         for check in c:

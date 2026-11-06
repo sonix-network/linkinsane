@@ -13,7 +13,7 @@ class EtherTypeCheck(lib.Check):
     def run(self, iface):
         eth_frame = (
             Ether(
-                dst='9e:2c:a4:a8:e6:06',
+                dst=lib.dst_mac('ethertype'),
                 src=get_if_hwaddr(iface),
                 type=0x88B5
             ) /
