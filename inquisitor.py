@@ -12,6 +12,7 @@ import time
 import zmq
 
 import checks
+from receive_window import receive_checks
 
 
 def construct_tcp_url(ip: str, port: int = 5555) -> str:
@@ -112,19 +113,7 @@ def main():
             for check in batch:
                 check.end_time += args.grace
 
-            running = batch
-            while running:
-                try:
-                    source, pkt = pkts.get(timeout=1.0)
-                except queue.Empty:
-                    break
-                logger.debug('Packet from %s: %s', source, pkt)
-                next_running = []
-                for check in running:
-                    if check.receive(source, pkt) == checks.Check.RECEIVE_AGAIN:
-                        logger.debug('%s still running', check)
-                        next_running.append(check)
-                running = next_running
+            receive_checks(batch, pkts, checks.Check.RECEIVE_AGAIN, logger)
             # Wait until the receiver has been quiet for the grace period, so a
             # backlog from this batch (the broadcast burst) is not mistaken for
             # the next check's frames, and discard those late copies.

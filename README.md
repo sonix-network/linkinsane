@@ -33,3 +33,10 @@ cannot drown the frames of the checks that run next at a slow receiver.
 
 Ensure that the peers can communicate out of band and the IP you provide to inquisitor
 can be reached regardless of the IXP platform.
+
+The receive-window regression tests use a deterministic queue and clock, without
+network interfaces or packet transmission:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
