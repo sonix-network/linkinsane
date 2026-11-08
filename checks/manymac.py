@@ -13,7 +13,7 @@ class ManyMacCheck(lib.Check):
     def run(self, iface):
         p1 = (
             Ether(
-                dst='ee:84:bc:b2:d3:94',
+                dst=lib.dst_mac('manymac'),
                 src=get_if_hwaddr(iface)
             ) /
             IP(dst='255.255.255.255') /
@@ -21,7 +21,7 @@ class ManyMacCheck(lib.Check):
         )
         p2 = (
             Ether(
-                dst='ee:84:bc:b2:d3:94',
+                dst=lib.dst_mac('manymac'),
                 src='c2:37:d7:c7:99:f9'
             ) /
             IP(dst='255.255.255.255') /
